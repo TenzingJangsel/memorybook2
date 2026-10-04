@@ -46,16 +46,15 @@
 </style>
 </head>
 <body>
-<video id="vid" src="https://www.image2url.com/r2/default/videos/1791009475641-db52f5a6-c2f4-457a-ada7-e9ab32930859.mp4" autoplay loop playsinline preload="auto"></video>
+<video id="vid" src="https://www.image2url.com/r2/default/videos/1791009475641-db52f5a6-c2f4-457a-ada7-e9ab32930859.mp4" loop playsinline preload="auto"></video>
 <div class="flash" id="flash"></div>
 <div class="banner" id="banner">NEVER GONNA GIVE YOU UP 🕺</div>
 <div class="tag" id="tag">you've been rickrolled 😎</div>
 
-<div class="gate" id="gate" role="button" tabindex="0" aria-label="Tap for sound">
+<div class="gate show" id="gate" role="button" tabindex="0" aria-label="Play">
   <div class="inner">
-    <div class="spk">🔊</div>
-    <div class="big">TAP ANYWHERE</div>
-    <div class="small">(turn your volume up 😏)</div>
+    <div class="spk">▶</div>
+    <div class="big">PLAY</div>
   </div>
 </div>
 
@@ -66,6 +65,22 @@
       flash = document.getElementById('flash'), banner = document.getElementById('banner'), tag = document.getElementById('tag');
   var live = false;
 
+  // trap Esc while fullscreen (Chrome/Edge over HTTPS only); other browsers ignore it
+  function lockEsc() { try { if (navigator.keyboard && navigator.keyboard.lock) navigator.keyboard.lock(['Escape']); } catch (e) {} }
+  function enterFS() {
+    var el = document.documentElement, req = el.requestFullscreen || el.webkitRequestFullscreen;
+    if (!req) return;
+    try { var fp = req.call(el); if (fp && fp.then) fp.then(lockEsc).catch(function () {}); else lockEsc(); } catch (e) {}
+  }
+  // if they manage to escape, re-enter fullscreen on the very next interaction
+  document.addEventListener('fullscreenchange', function () {
+    if (!document.fullscreenElement && live) {
+      ['pointerdown', 'keydown', 'touchstart', 'click'].forEach(function (ev) {
+        window.addEventListener(ev, enterFS, { once: true, passive: true });
+      });
+    }
+  });
+
   function goLoud() {
     if (live) return; live = true;
     vid.muted = false;
@@ -73,26 +88,12 @@
     var p = vid.play(); if (p && p.catch) p.catch(function () {});
     gate.classList.remove('show');
     flash.classList.add('on'); banner.classList.add('on'); tag.classList.add('on');
-    try { (document.documentElement.requestFullscreen || document.documentElement.webkitRequestFullscreen || function () {}).call(document.documentElement); } catch (e) {}
+    enterFS();
   }
 
-  // 1) try to blast with sound the instant it opens
-  vid.muted = false;
-  (function tryLoud() {
-    var p = vid.play();
-    if (p && p.then) {
-      p.then(function () { goLoud(); }).catch(function () {
-        // blocked: start muted so the picture still autoplays, then wait for any interaction
-        vid.muted = true; vid.play().catch(function () {});
-        gate.classList.add('show');
-      });
-    } else { setTimeout(function () { if (!live) { vid.muted = true; gate.classList.add('show'); } }, 300); }
-  })();
-
-  // 2) the first interaction anywhere unmutes to full volume
-  ['pointerdown', 'keydown', 'touchstart', 'click', 'mousemove', 'scroll'].forEach(function (ev) {
-    window.addEventListener(ev, goLoud, { once: true, passive: true });
-  });
+  // nothing plays until they click Play — so no muted autoplay to tip them off
+  gate.addEventListener('click', goLoud);
+  gate.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); goLoud(); } });
 
   // runaway close button (there is no escape)
   (function () {
